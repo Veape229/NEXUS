@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NEURAL | TITAN OMEGA [CLOUD]</title>
+    <!-- LeanCloud SDK -->
+    <script src="https://unpkg.com/leancloud-storage@4.15.2/dist/av-min.js"></script>
+    
+    <link rel="preconnect" href="https://gs.jurieo.com/gemini/fonts-googleapis">
+    <link rel="preconnect" href="https://gs.jurieo.com/gemini/fonts-gstatic" crossorigin>
+    <link href="https://gs.jurieo.com/gemini/fonts-googleapis/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* 核心基调 */
+            --bg-deep: #050505;
+            --bg-glass: rgba(10, 15, 20, 0.7);
+            
+            /* 强调色 */
+            --accent-primary: #0af; 
+            --accent-dim: rgba(0, 170, 255, 0.15);
+            --accent-text: #8cdbff;
+            --accent-gold: #ffd700; /* 置顶色 */
+            
+            /* 辅助色 */
+            --text-main: #e1e6eb;
+            --text-muted: #5a6b7c;
+            --alert: #ff3366;
+            --success: #00ff9d;
+            
+            /* 布局变量 */
+            --sidebar-width: 280px;
+            --font-ui: 'Rajdhani', sans-serif;
+            --font-code: 'Share Tech Mono', monospace;
+            --console-height: 80px; /* Base height estimate for padding calc */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* Dynamic Viewport Height for mobile browsers */
+            overflow: hidden;
+            display: flex;
+            background-image: 
+                radial-gradient(circle at 50% 30%, rgba(0, 60, 100, 0.15) 0%, transparent 60%),
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 60px 60px, 60px 60px;
+            position: relative;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 170, 255, 0.2); }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* --- 动画 --- */
+        @keyframes scanline {
+            0% { transform: translateY(-100%); opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 2px 0 10px var(--accent-primary); opacity: 1; }
+            50% { box-shadow: 2px 0 20px var(--accent-primary); opacity: 0.8; }
+            100% { box-shadow: 2px 0 10px var(--accent-primary); opacity: 1; }
+        }
+        @keyframes pulse-gold {
+            0% { box-shadow: 2px 0 10px var(--accent-gold); opacity: 1; }
+            50% { box-shadow: 2px 0 20px var(--accent-gold); opacity: 0.8; }
+            100% { box-shadow: 2px 0 10px var(--accent-gold); opacity: 1; }
+        }
+        @keyframes modal-entry {
+            0% { opacity: 0; transform: scale(0.95) translateY(10px); filter: blur(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+        }
+        @keyframes text-cursor-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 全局扫描线 */
+        .scan-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 170, 255, 0.02) 51%, transparent 51%);
+            background-size: 100% 4px;
+        }
+        .scan-beam {
+            position: absolute; top: 0; left: 0; width: 100%; height: 200px;
+            background: linear-gradient(to bottom, transparent, rgba(0, 170, 255, 0.05), transparent);
+            animation: scanline 8s linear infinite; pointer-events: none;
+        }
+
+        /* --- UI Elements --- */
+        .corner-decor {
+            position: absolute; width: 8px; height: 8px;
+            border: 1px solid var(--accent-primary);
+            transition: all 0.3s ease; opacity: 0.6; pointer-events: none;
+        }
+        .corner-tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+        .corner-tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+        .corner-br { bottom: 0; right: 0; border-left: none; border-top: none; }
+
+        /* --- Sidebar --- */
+        aside {
+            width: var(--sidebar-width);
+            background: rgba(8, 8, 10, 0.95); backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(255,255,255,0.03);
+            display: flex; flex-direction: column; z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            flex-shrink: 0;
+            height: 100%;
+        }
+        aside.collapsed { transform: translateX(-100%); margin-right: calc(var(--sidebar-width) * -1); }
+
+        .brand-block { padding: 30px 24px 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .app-title {
+            font-size: 1.2rem; font-weight: 700; letter-spacing: 4px; color: var(--text-main);
+            text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+        }
+        .app-title span { color: var(--accent-primary); }
+        
+        .search-box { margin-top: 15px; position: relative; }
+        .search-input {
+            width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px; color: var(--text-main); font-family: var(--font-code); font-size: 16px; /* Prevent Zoom on iOS */
+            border-radius: 0;
+        }
+        .search-input:focus { border-color: var(--accent-primary); }
+
+        .sys-info {
+            font-family: var(--font-code); font-size: 0.65rem; color: var(--text-muted);
+            margin-top: 15px; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .loader {
+            width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.1);
+            border-top: 2px solid var(--accent-primary); border-radius: 50%;
+            animation: spin 1s linear infinite; display: none;
+        }
+
+        .node-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+
+        .node-item {
+            padding: 14px 16px; cursor: pointer; border-radius: 2px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden; border: 1px solid transparent;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .node-item:hover { background: rgba(255,255,255,0.02); color: #fff; }
+        
+        .node-item.active {
+            background: linear-gradient(90deg, rgba(0, 170, 255, 0.08) 0%, transparent 100%);
+            border: 1px solid var(--accent-dim); color: var(--accent-text);
+        }
+        .node-item.active::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+            background: var(--accent-primary); animation: pulse-glow 3s infinite;
+        }
+        
+        .node-item.pinned { border-left: 1px solid var(--accent-gold); }
+        .node-item.pinned .node-name { color: var(--accent-gold); }
+        .node-item.pinned.active::before { background: var(--accent-gold); animation: pulse-gold 3s infinite; }
+        
+        .node-info { display: flex; flex-direction: column; flex: 1; }
+        .node-name { font-size: 0.95rem; font-weight: 500; letter-spacing: 1px; }
+        .node-id { font-family: var(--font-code); font-size: 0.65rem; opacity: 0.5; margin-top: 2px; }
+        
+        .node-actions { display: flex; gap: 10px; opacity: 0; transition: opacity 0.2s; }
+        .node-item:hover .node-actions, .node-item.active .node-actions { opacity: 1; } 
+        @media (hover: none) { .node-item.active .node-actions { opacity: 1; } }
+        
+        .action-icon {
+            background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-muted);
+            width: 32px; height: 32px; /* Bigger touch target */
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border-radius: 2px;
+        }
+        .action-icon.pin-active { color: var(--accent-gold); border-color: var(--accent-gold); }
+        .action-icon.delete:hover { border-color: var(--alert); color: var(--alert); }
+
+        .sidebar-ctrl { padding: 20px; border-top: 1px solid rgba(255,255,255,0.03); padding-bottom: 30px; }
+        .ctrl-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        
+        .btn-init {
+            flex: 1; padding: 12px; background: transparent;
+            border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);
+            font-family: var(--font-code); font-size: 0.8rem; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.3s; text-transform: uppercase;
+        }
+        .btn-init:hover {
+            border-color: var(--accent-primary); color: var(--accent-text);
+            box-shadow: 0 0 15px var(--accent-dim); background: rgba(0, 170, 255, 0.05);
+        }
+        .btn-mini { flex: 0 0 auto; width: 50px; text-align: center; }
+
+        .mem-bar-container { margin-top: 10px; }
+        .mem-label { font-size: 0.65rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 4px; font-family: var(--font-code); }
+        .mem-track { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+        .mem-fill { height: 100%; background: var(--accent-primary); width: 0%; transition: width 0.5s; box-shadow: 0 0 10px var(--accent-primary); }
+        
+        /* --- Mobile Overlay --- */
+        .mobile-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
+            z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .mobile-overlay.active { opacity: 1; pointer-events: auto; }
+
+        /* --- Main Area --- */
+        main { flex: 1; display: flex; flex-direction: column; position: relative; width: 100%; overflow: hidden; }
+
+        header {
+            height: 60px; padding: 0 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%);
+            z-index: 10; flex-shrink: 0;
+        }
+        
+        .toggle-sidebar-btn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; margin-right: 15px; transition: all 0.2s;
+        }
+        .toggle-sidebar-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
+
+        .head-left { display: flex; align-items: center; overflow: hidden; flex: 1; }
+        .head-title { font-size: 1.2rem; font-weight: 600; letter-spacing: 2px; color: var(--text-main); text-transform: uppercase; display: flex; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .typing-cursor {
+            display: inline-block; width: 8px; height: 1.2rem; background: var(--accent-primary);
+            margin-left: 5px; animation: text-cursor-blink 1s infinite; flex-shrink: 0;
+        }
+        
+        .head-display { text-align: right; margin-left: 10px; min-width: 80px; }
+        .head-decor { height: 2px; width: 20px; background: var(--accent-primary); margin-left: auto; margin-top: 4px; transition: width 0.3s; }
+        header:hover .head-decor { width: 40px; }
+
+        #stream-wrapper {
+            flex: 1; overflow-y: auto; overflow-x: hidden;
+            padding: 20px 10% 160px 10%; 
+            position: relative;
+            mask-image: linear-gradient(to bottom, transparent 0%, black 50px, black calc(100% - 50px), transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 50px, black calc(100% - 50px), transparent 100%);
+        }
+
+        .timeline-axis {
+            position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+            background: rgba(255,255,255,0.05); transform: translateX(-50%); z-index: 0;
+        }
+
+        .log-entry {
+            margin-bottom: 30px; position: relative; display: flex; justify-content: center;
+            animation: fadeInUpscale 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 100%;
+        }
+        @keyframes fadeInUpscale {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .log-card {
+            width: 600px; max-width: 100%;
+            background: rgba(18, 20, 24, 0.6); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.05); padding: 20px;
+            position: relative; border-radius: 2px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .log-card:hover { border-color: var(--accent-dim); }
+
+        .log-del-btn {
+            position: absolute; top: 0; right: 0;
+            color: var(--alert); background: transparent; border: none;
+            font-family: var(--font-code); font-size: 1.2rem; cursor: pointer; 
+            padding: 10px 15px;
+            line-height: 1; opacity: 0.5;
+        }
+        .log-del-btn:hover { opacity: 1; }
+
+        .card-top-decor {
+            position: absolute; top: -1px; left: 20px; right: 20px; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent); opacity: 0.5;
+        }
+
+        .meta-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; font-family: var(--font-code); font-size: 0.7rem; color: var(--text-muted);
+        }
+        .meta-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+        .tag-pill {
+            padding: 2px 6px; border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted); border-radius: 10px; text-transform: uppercase; font-size: 0.65rem;
+        }
+        .tag-pill.highlight { border-color: var(--accent-primary); color: var(--accent-text); background: var(--accent-dim); }
+
+        .content-body { font-size: 1rem; line-height: 1.6; color: #d0d6dd; white-space: pre-wrap; font-weight: 300; word-break: break-word; }
+        .attachment-box {
+            margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3);
+            border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); overflow-x: auto;
+        }
+        .code-block { font-family: var(--font-code); font-size: 0.8rem; color: #a8b8c8; }
+        .img-block img { max-width: 100%; border-radius: 2px; display: block; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-family: var(--font-code); }
+        .data-table td, .data-table th { padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left; }
+        .data-table th { color: var(--accent-text); font-weight: normal; }
+
+        /* --- Console Dock --- */
+        #console-dock {
+            position: absolute; bottom: 20px; left: 0; right: 0;
+            display: flex; justify-content: center; pointer-events: none; z-index: 50;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 0 10px;
+        }
+        .console-hull {
+            pointer-events: auto; width: 700px; max-width: 100%;
+            background: rgba(10, 12, 14, 0.95); backdrop-filter: blur(25px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .console-interface {
+            background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+            border: 1px solid rgba(255,255,255,0.05); padding: 12px 16px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .input-line { display: flex; align-items: flex-start; gap: 10px; }
+        .prompt-char { color: var(--accent-primary); font-family: var(--font-code); margin-top: 6px; }
+        textarea.cmd-input {
+            flex: 1; background: transparent; border: none; color: #fff;
+            font-family: var(--font-ui); font-size: 16px; /* iOS no-zoom */
+            resize: none; height: 24px; line-height: 1.5; font-weight: 400; padding: 4px 0;
+        }
+        textarea.cmd-input::placeholder { color: rgba(255,255,255,0.2); font-style: italic; font-size: 14px; }
+        
+        .extension-drawer {
+            display: none; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);
+            animation: slideDown 0.2s ease-out;
+        }
+        .extension-drawer.open { display: block; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .code-textarea {
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+            color: #a8b8c8; font-family: var(--font-code); font-size: 14px; padding: 10px; min-height: 80px;
+        }
+
+        .status-bar { display: flex; justify-content: space-between; align-items: center; padding-top: 5px; flex-wrap: wrap; gap: 10px; }
+        .tools-left { display: flex; gap: 15px; }
+        .btn-tool {
+            background: transparent; border: none; color: var(--text-muted);
+            font-family: var(--font-code); font-size: 0.75rem; cursor: pointer;
+            letter-spacing: 1px; transition: color 0.2s; display: flex; align-items: center; gap: 4px;
+            padding: 8px 5px; /* Touch area */
+        }
+        .btn-tool:hover, .btn-tool.active { color: var(--accent-text); }
+        .btn-tool.active::before { content: '●'; font-size: 6px; color: var(--accent-primary); }
+
+        .btn-send {
+            background: var(--text-main); color: #000; border: none; padding: 8px 20px;
+            font-family: var(--font-code); font-weight: 700; font-size: 0.8rem; letter-spacing: 1px;
+            cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%); transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-send:hover { background: var(--accent-text); box-shadow: 0 0 15px var(--accent-dim); }
+
+        .attachment-preview { display: none; gap: 8px; margin-top: 8px; }
+        .chip {
+            font-family: var(--font-code); font-size: 0.7rem; color: var(--accent-text);
+            background: rgba(0, 170, 255, 0.1); padding: 4px 10px; border-radius: 2px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .chip-x { cursor: pointer; padding: 2px; }
+
+        /* Modals */
+        .modal-mask {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 200;
+        }
+        .modal-box {
+            width: 420px; max-width: 90%; background: #0e1012; border: 1px solid rgba(255,255,255,0.1);
+            padding: 25px; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            animation: modal-entry 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .modal-box .corner-decor { opacity: 1; }
+        .modal-title { font-size: 1.1rem; color: var(--text-main); margin-bottom: 20px; letter-spacing: 2px; }
+        .modal-input {
+            width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px; color: #fff; font-family: var(--font-ui); font-size: 16px;
+            margin-bottom: 10px; transition: border 0.2s;
+        }
+        .modal-input:focus { border-color: var(--accent-primary); }
+        .modal-textarea {
+            width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+            color: #00ff9d; font-family: var(--font-code); font-size: 14px;
+            height: 150px; padding: 10px; resize: none; margin-bottom: 20px;
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 15px; margin-top: 15px; }
+
+        /* --- Mobile Responsive Tweaks --- */
+        @media (max-width: 768px) {
+            :root { --sidebar-width: 260px; }
+            aside { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(0); box-shadow: 10px 0 50px rgba(0,0,0,0.8); }
+            aside.collapsed { transform: translateX(-100%); margin-right: 0; }
+            #stream-wrapper { padding: 10px 10px 120px 10px; -webkit-mask-image: none; mask-image: none; }
+            #console-dock { bottom: 0; left: 0; padding: 0; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(10, 12, 14, 0.98); }
+            .console-hull { width: 100%; border: none; border-radius: 0; padding: 0; box-shadow: none; background: transparent; }
+            .console-interface { padding: 10px 15px; border: none; }
+            .corner-decor { display: none; }
+            .head-display { display: none; }
+            .head-title { font-size: 1rem; }
+            .log-card { padding: 15px; }
+            .modal-box { width: 95%; padding: 20px; }
+            .node-name { font-size: 0.9rem; }
+            .status-bar { padding-top: 8px; }
+            .btn-send { padding: 10px 20px; flex-grow: 1; text-align: center; clip-path: none; border-radius: 2px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="scan-overlay"></div>
+<div class="scan-beam"></div>
+
+<!-- Mobile Backdrop -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar(true)"></div>
+
+<!-- Sidebar -->
+<aside id="sidebar" class="collapsed">
+    <div class="brand-block">
+        <div class="app-title">
+            <span>//</span> NEURAL OMEGA
+        </div>
+        <div class="search-box">
+            <input type="text" class="search-input" placeholder="SEARCH NODES..." oninput="filterNodes(this.value)">
+        </div>
+        <div class="sys-info">
+            <span>LEANCLOUD NET</span>
+            <div style="display:flex; align-items:center; gap:8px">
+                <div class="loader" id="sysLoader"></div>
+                <span id="sysStatus" style="color:var(--accent-primary)">READY</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="node-list" id="projectList"></div>
+    
+    <div class="sidebar-ctrl">
+        <div class="mem-bar-container">
+            <div class="mem-label"><span>CLOUD SYNC</span><span id="memPct">0%</span></div>
+            <div class="mem-track"><div class="mem-fill" id="memBar"></div></div>
+        </div>
+        <div style="height: 15px;"></div>
+        <div class="ctrl-row">
+            <button class="btn-init" onclick="openModal('projectModal')">INIT NODE</button>
+            <button class="btn-init btn-mini" title="Data IO" onclick="openDataModal()">IO</button>
+        </div>
+    </div>
+</aside>
+
+<!-- Main Area -->
+<main id="mainPanel">
+    <header>
+        <div class="head-left">
+            <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Toggle Menu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+            </button>
+            <div class="head-info" style="overflow: hidden;">
+                <div class="head-title">
+                    <span id="headerNameText">CONNECTING...</span><span class="typing-cursor"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="head-display">
+            <div class="head-decor"></div>
+            <div style="font-family: var(--font-code); font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; text-align:right;">ID: <span id="headerId" style="color: var(--accent-text);">--</span></div>
+        </div>
+    </header>
+
+    <div id="stream-wrapper">
+        <div class="timeline-axis"></div>
+        <div id="timelineLog">
+            <div style="text-align: center; color: var(--text-muted); margin-top: 100px; font-family: var(--font-code); font-size: 0.8rem;">
+                INITIALIZING NEURAL LINK...
+            </div>
+        </div>
+    </div>
+
+    <!-- Console Dock -->
+    <div id="console-dock">
+        <div class="console-hull">
+            <div class="corner-decor corner-tl"></div><div class="corner-decor corner-tr"></div>
+            <div class="corner-decor corner-bl"></div><div class="corner-decor corner-br"></div>
+
+            <div class="console-interface">
+                <div class="input-line">
+                    <span class="prompt-char">></span>
+                    <textarea id="mainInput" class="cmd-input" placeholder="Enter command or data..." rows="1" oninput="autoResize(this)"></textarea>
+                </div>
+                <div id="extCode" class="extension-drawer">
+                    <textarea id="codeInput" class="code-textarea" placeholder="// Input code snippet..."></textarea>
+                </div>
+                <div id="extPreview" class="attachment-preview" style="display:none;"></div>
+                <div class="status-bar">
+                    <div class="tools-left">
+                        <button class="btn-tool" id="btnCode" onclick="toggleMode('code')">CODE</button>
+                        <button class="btn-tool" id="btnImg" onclick="triggerFile()">IMG</button>
+                        <button class="btn-tool" id="btnList" onclick="toggleMode('list')">LIST</button>
+                    </div>
+                    <button class="btn-send" onclick="submitLog()">TRANSMIT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<input type="file" id="hiddenFile" accept="image/*" style="display:none" onchange="handleFileSelect(this)">
+
+<!-- Node Init Modal -->
+<div class="modal-mask" id="projectModal">
+    <div class="modal-box">
+        <div class="corner-decor corner-tl"></div><div class="corner-decor corner-tr"></div>
+        <div class="corner-decor corner-bl"></div><div class="corner-decor corner-br"></div>
+        <div class="modal-title">NEW NEURAL NODE</div>
+        <input type="text" class="modal-input" id="nodeNameInput" placeholder="Node Designation...">
+        <div class="modal-actions">
+            <button class="btn-tool" onclick="closeModal('projectModal')">CANCEL</button>
+            <button class="btn-send" onclick="createNode()">INITIALIZE</button>
+        </div>
+    </div>
+</div>
+
+<!-- Data IO Modal -->
+<div class="modal-mask" id="dataModal">
+    <div class="modal-box" style="width: 500px;">
+        <div class="corner-decor corner-tl"></div><div class="corner-decor corner-tr"></div>
+        <div class="corner-decor corner-bl"></div><div class="corner-decor corner-br"></div>
+        <div class="modal-title">CLOUD IO INTERFACE</div>
+        <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:10px;">EXPORT SNAPSHOT OR BATCH UPLOAD JSON</p>
+        <textarea id="ioTextarea" class="modal-textarea" spellcheck="false"></textarea>
+        <div class="modal-actions">
+            <button class="btn-tool" onclick="closeModal('dataModal')">CLOSE</button>
+            <button class="btn-tool" style="color:var(--accent-text)" onclick="exportData()">EXPORT JSON</button>
+            <button class="btn-send" onclick="importData()">BATCH UPLOAD</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Configuration ---
+    const LC_APP_ID = '4cBxGdKbX2WglO4csanYiFpB-gzGzoHsz';
+    const LC_APP_KEY = 'nEGwiAaxWjGz0KYf0rxzdSgN';
+    const LC_SERVER_URL = 'https://4cbxgdkb.lc-cn-n1-shared.com';
+
+    // --- State ---
+    let appData = { nodes: [] }; // Local cache of cloud data
+    let currentNodeId = null; // References the custom 'nodeId' string (e.g. N-8204), NOT the AV objectId
+    let currentAVObject = null; // The actual AV Object
+    let uiState = { code: false, list: false, img: null };
+    let typingInterval = null;
+    let sidebarOpen = false;
+
+    // --- Initialization ---
+    function init() {
+        // Initialize LeanCloud
+        try {
+            AV.init({
+                appId: LC_APP_ID,
+                appKey: LC_APP_KEY,
+                serverURL: LC_SERVER_URL
+            });
+            console.log("LeanCloud Initialized");
+        } catch(e) {
+            console.error("LeanCloud Init Failed", e);
+            alert("DB CONNECTION FAILED");
+            return;
+        }
+
+        // Mobile State Check
+        const isMobile = window.innerWidth < 768;
+        const sidebar = document.getElementById('sidebar');
+        if (isMobile) {
+            sidebar.classList.add('collapsed');
+            sidebarOpen = false;
+        } else {
+            sidebar.classList.remove('collapsed');
+            sidebarOpen = true;
+        }
+
+        document.getElementById('mainInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && e.ctrlKey) submitLog();
+        });
+        document.addEventListener('paste', handlePaste);
+
+        // Start Data Fetch
+        fetchNodes();
+    }
+
+    // --- Cloud Operations ---
+    async function fetchNodes() {
+        setLoading(true);
+        try {
+            const query = new AV.Query('OmegaNode');
+            query.descending('updatedAt');
+            query.limit(100); // Adjust as needed
+            const results = await query.find();
+            
+            appData.nodes = results.map(obj => ({
+                objectId: obj.id,
+                ...obj.attributes
+            }));
+            
+            renderSidebar();
+            
+            // Select first node if available
+            if (appData.nodes.length > 0) {
+                // Determine which to select (pinned first, then recent)
+                let target = appData.nodes.find(n => n.pinned) || appData.nodes[0];
+                selectNode(target.nodeId);
+            } else {
+                // No nodes found
+                document.getElementById('headerNameText').innerText = "NO DATA";
+                document.getElementById('timelineLog').innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 100px; font-family: var(--font-code); font-size: 0.8rem;">DATABASE EMPTY. INIT NODE.</div>`;
+                setLoading(false);
+            }
+        } catch (error) {
+            // FIX: Handle missing class error (first run)
+            if (error.code === 404 || (error.message && error.message.includes("Class or object doesn't exists"))) {
+                console.log("Class OmegaNode not found, assuming new DB.");
+                appData.nodes = [];
+                renderSidebar();
+                document.getElementById('headerNameText').innerText = "SYSTEM READY";
+                document.getElementById('timelineLog').innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 100px; font-family: var(--font-code); font-size: 0.8rem;">NEW SYSTEM INITIALIZED.<br>CREATE FIRST NODE TO START.</div>`;
+                setLoading(false);
+                return;
+            }
+
+            console.error("Fetch Error:", error);
+            document.getElementById('sysStatus').innerText = "ERROR";
+            document.getElementById('sysStatus').style.color = "var(--alert)";
+            alert("CLOUD FETCH ERROR: " + error.message);
+            setLoading(false);
+        }
+    }
+
+    async function createNode() {
+        const name = document.getElementById('nodeNameInput').value;
+        if (!name) return;
+        
+        setLoading(true);
+        const nodeId = 'N-' + Math.floor(Math.random()*9000 + 1000);
+        
+        try {
+            const OmegaNode = AV.Object.extend('OmegaNode');
+            const node = new OmegaNode();
+            node.set('nodeId', nodeId);
+            node.set('name', name);
+            node.set('logs', []);
+            node.set('pinned', false);
+            
+            const saved = await node.save();
+            
+            // Update Local Cache
+            const newNode = {
+                objectId: saved.id,
+                nodeId, name, logs: [], pinned: false
+            };
+            appData.nodes.unshift(newNode);
+            
+            closeModal('projectModal');
+            document.getElementById('nodeNameInput').value = '';
+            renderSidebar();
+            selectNode(nodeId);
+        } catch(e) {
+            alert("CREATE FAILED: " + e.message);
+            setLoading(false);
+        }
+    }
+
+    async function submitLog() {
+        if (!currentAVObject) return;
+
+        const mainInputEl = document.getElementById('mainInput');
+        const main = mainInputEl.value.trim();
+        const code = document.getElementById('codeInput').value.trim();
+
+        // Slash Commands
+        if (main.startsWith('/')) {
+            handleSlashCommand(main);
+            return;
+        }
+
+        if (!main && !code && !uiState.img) return;
+
+        setLoading(true);
+
+        // Construct Log Object
+        let tags = [];
+        if (code || uiState.code) tags.push('DEV');
+        if (uiState.img) tags.push('VISUAL');
+        if (uiState.list) tags.push('LIST');
+        if (tags.length === 0) tags.push('LOG');
+
+        const newLog = {
+            id: Date.now(),
+            ts: new Date().toISOString(),
+            text: main,
+            code: (uiState.code && code) ? code : null,
+            image: uiState.img,
+            isList: uiState.list,
+            tags: tags
+        };
+
+        try {
+            // Get latest version of object to ensure atomicity is decent (simple approach)
+            // Note: For high concurrency, use atomic push. For this app, fetch-update-save is acceptable.
+            const object = AV.Object.createWithoutData('OmegaNode', currentAVObject.objectId);
+            object.add('logs', newLog); // Atomic Add to Array
+            await object.save();
+
+            // Update Local State (optimistic or re-fetch? Let's just push to local to save bandwidth)
+            const localNode = appData.nodes.find(n => n.nodeId === currentNodeId);
+            if (localNode) localNode.logs.push(newLog);
+            
+            renderLogs(localNode.logs);
+            
+            // Reset UI
+            mainInputEl.value = '';
+            document.getElementById('codeInput').value = '';
+            mainInputEl.style.height = '24px';
+            clearImg();
+            
+            // Scroll
+            const stream = document.getElementById('stream-wrapper');
+            stream.scrollTop = stream.scrollHeight;
+            setLoading(false);
+        } catch(e) {
+            alert("LOG SYNC FAILED: " + e.message);
+            setLoading(false);
+        }
+    }
+
+    async function togglePin(nodeId) {
+        const localNode = appData.nodes.find(n => n.nodeId === nodeId);
+        if(!localNode) return;
+
+        setLoading(true);
+        try {
+            const object = AV.Object.createWithoutData('OmegaNode', localNode.objectId);
+            const newPinState = !localNode.pinned;
+            object.set('pinned', newPinState);
+            await object.save();
+            
+            localNode.pinned = newPinState;
+            renderSidebar(document.querySelector('.search-input').value);
+            setLoading(false);
+        } catch(e) {
+            alert("PIN FAILED: " + e.message);
+            setLoading(false);
+        }
+    }
+
+    async function deleteNode(nodeId) {
+        if(!confirm("CONFIRM DELETION (CLOUD SYNC)?")) return;
+        const localNode = appData.nodes.find(n => n.nodeId === nodeId);
+        if(!localNode) return;
+
+        setLoading(true);
+        try {
+            const object = AV.Object.createWithoutData('OmegaNode', localNode.objectId);
+            await object.destroy();
+            
+            appData.nodes = appData.nodes.filter(n => n.nodeId !== nodeId);
+            
+            if(currentNodeId === nodeId) {
+                currentNodeId = null;
+                currentAVObject = null;
+                document.getElementById('headerNameText').innerText = "DELETED";
+                document.getElementById('headerId').innerText = "--";
+                document.getElementById('timelineLog').innerHTML = "";
+                // Try select another
+                if(appData.nodes.length > 0) selectNode(appData.nodes[0].nodeId);
+            }
+            
+            renderSidebar();
+            setLoading(false);
+        } catch(e) {
+            alert("DELETE FAILED: " + e.message);
+            setLoading(false);
+        }
+    }
+
+    async function deleteLog(logId) {
+        if(!confirm("DELETE LOG?")) return;
+        if(!currentAVObject) return;
+        
+        setLoading(true);
+        const localNode = appData.nodes.find(n => n.nodeId === currentNodeId);
+        
+        // Filter out locally
+        const updatedLogs = localNode.logs.filter(l => l.id !== logId);
+        
+        try {
+            // Overwrite array on cloud
+            const object = AV.Object.createWithoutData('OmegaNode', currentAVObject.objectId);
+            object.set('logs', updatedLogs);
+            await object.save();
+            
+            localNode.logs = updatedLogs;
+            renderLogs(updatedLogs);
+            setLoading(false);
+        } catch(e) {
+            alert("DELETE LOG FAILED: " + e.message);
+            setLoading(false);
+        }
+    }
+
+    // --- Helpers ---
+    function handleSlashCommand(cmd) {
+        const c = cmd.toLowerCase().trim();
+        const mainInput = document.getElementById('mainInput');
+        if (c === '/clear') { mainInput.value = ''; return; }
+        if (c === '/time') { mainInput.value = new Date().toLocaleString(); return; }
+        if (c === '/wipe') {
+             if(confirm("WIPE ALL LOGS IN CLOUD?")) {
+                 setLoading(true);
+                 const object = AV.Object.createWithoutData('OmegaNode', currentAVObject.objectId);
+                 object.set('logs', []);
+                 object.save().then(() => {
+                     const localNode = appData.nodes.find(n => n.nodeId === currentNodeId);
+                     localNode.logs = [];
+                     renderLogs([]);
+                     mainInput.value = '';
+                     setLoading(false);
+                 }).catch(e => { alert(e.message); setLoading(false); });
+             }
+             return;
+        }
+        alert("COMMANDS:\n/clear\n/time\n/wipe");
+        mainInput.value = '';
+    }
+
+    function setLoading(isLoading) {
+        const loader = document.getElementById('sysLoader');
+        const status = document.getElementById('sysStatus');
+        const bar = document.getElementById('memBar');
+        const pct = document.getElementById('memPct');
+        
+        if(isLoading) {
+            loader.style.display = 'block';
+            status.innerText = "SYNCING";
+            bar.style.width = '100%';
+            bar.classList.add('pulsing');
+            pct.innerText = "BUSY";
+        } else {
+            loader.style.display = 'none';
+            status.innerText = "ONLINE";
+            bar.style.width = '0%';
+            bar.classList.remove('pulsing');
+            pct.innerText = "IDLE";
+        }
+    }
+
+    // --- Rendering ---
+    function renderSidebar(filter = "") {
+        const list = document.getElementById('projectList');
+        list.innerHTML = '';
+        
+        let sortedNodes = [...appData.nodes].sort((a, b) => {
+            if (a.pinned === b.pinned) {
+                // If pin state same, sort by UpdatedAt (using objectId as rough proxy or if available)
+                // Since we prepended new nodes, index order is roughly creation time.
+                return 0; 
+            }
+            return a.pinned ? -1 : 1;
+        });
+
+        const nodesToRender = sortedNodes.filter(n => 
+            n.name.toLowerCase().includes(filter.toLowerCase()) || 
+            n.nodeId.toLowerCase().includes(filter.toLowerCase())
+        );
+
+        nodesToRender.forEach(n => {
+            const el = document.createElement('div');
+            el.className = `node-item ${n.nodeId === currentNodeId ? 'active' : ''} ${n.pinned ? 'pinned' : ''}`;
+            const pinClass = n.pinned ? 'action-icon pin-active' : 'action-icon';
+            
+            el.innerHTML = `
+                <div class="node-info" onclick="selectNode('${n.nodeId}')">
+                    <div class="node-name">${n.name}</div>
+                    <div class="node-id">ID: ${n.nodeId}</div>
+                </div>
+                <div class="node-actions">
+                    <button class="${pinClass}" onclick="togglePin('${n.nodeId}')" title="Pin/Unpin">★</button>
+                    <button class="action-icon delete" onclick="deleteNode('${n.nodeId}')" title="Delete">×</button>
+                </div>
+            `;
+            list.appendChild(el);
+        });
+    }
+
+    function selectNode(nodeId) {
+        currentNodeId = nodeId;
+        const node = appData.nodes.find(n => n.nodeId === nodeId);
+        if(!node) return;
+        
+        currentAVObject = node; // Reference the object for ID usage
+        
+        typeWriter(node.name, 'headerNameText');
+        document.getElementById('headerId').innerText = node.nodeId;
+        renderLogs(node.logs || []);
+        
+        document.querySelectorAll('.node-item').forEach(el => el.classList.remove('active'));
+        renderSidebar(document.querySelector('.search-input').value);
+
+        if (window.innerWidth < 768) toggleSidebar(true);
+    }
+
+    function renderLogs(logs) {
+        const container = document.getElementById('timelineLog');
+        container.innerHTML = '';
+        
+        if (!logs || logs.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 100px; font-family: var(--font-code); font-size: 0.8rem;">NO LOGS</div>`;
+            return;
+        }
+
+        [...logs].reverse().forEach((log, index) => {
+            const d = new Date(log.ts);
+            const timeStr = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+            const dateStr = `${d.getMonth()+1}.${d.getDate()}`;
+
+            const el = document.createElement('div');
+            el.className = 'log-entry';
+            el.style.animationDelay = `${index * 0.05}s`;
+
+            let tagsHtml = (log.tags || []).map(t => {
+                let cls = 'tag-pill';
+                if(t === 'DEV' || t === 'VISUAL' || t === 'LIST') cls += ' highlight';
+                return `<span class="${cls}">${t}</span>`;
+            }).join('');
+
+            let bodyHtml = '';
+            
+            if (log.text) {
+                if (log.isList) {
+                     const rows = log.text.split('\n').map(line => {
+                        const parts = line.split(/[:：]/);
+                        if(parts.length < 2) return `<tr><td colspan="2">${line}</td></tr>`;
+                        return `<tr><th width="30%">${parts[0]}</th><td>${parts.slice(1).join(':')}</td></tr>`;
+                    }).join('');
+                    bodyHtml += `<table class="data-table">${rows}</table>`;
+                } else {
+                    bodyHtml += `<div class="content-body">${escapeHtml(log.text)}</div>`;
+                }
+            }
+
+            if (log.code) bodyHtml += `<div class="attachment-box"><div class="code-block" style="white-space:pre-wrap;">${escapeHtml(log.code)}</div></div>`;
+            if (log.image) bodyHtml += `<div class="attachment-box img-block"><img src="${log.image}"></div>`;
+
+            el.innerHTML = `
+                <div class="log-card">
+                    <button class="log-del-btn" onclick="deleteLog(${log.id})">×</button>
+                    <div class="card-top-decor"></div>
+                    <div class="meta-row">
+                        <div class="meta-tags">${tagsHtml}</div>
+                        <div>${dateStr} <span style="color:var(--accent-primary)">${timeStr}</span></div>
+                    </div>
+                    ${bodyHtml}
+                </div>
+            `;
+            container.appendChild(el);
+        });
+    }
+
+    // --- IO & Utils ---
+    function openDataModal() { document.getElementById('dataModal').style.display = 'flex'; document.getElementById('ioTextarea').value = ""; }
+    function exportData() { document.getElementById('ioTextarea').value = JSON.stringify(appData, null, 2); }
+    
+    async function importData() {
+        const json = document.getElementById('ioTextarea').value;
+        if(!confirm("BATCH UPLOAD? THIS WILL CREATE NEW NODES IN CLOUD.")) return;
+        
+        try {
+            const data = JSON.parse(json);
+            if(!data.nodes) throw new Error("Invalid Format");
+            
+            setLoading(true);
+            const OmegaNode = AV.Object.extend('OmegaNode');
+            const objectsToSave = [];
+            
+            data.nodes.forEach(n => {
+                const node = new OmegaNode();
+                node.set('nodeId', n.nodeId || 'RESTORED-'+Date.now());
+                node.set('name', n.name + ' [Restored]');
+                node.set('logs', n.logs || []);
+                node.set('pinned', false);
+                objectsToSave.push(node);
+            });
+            
+            await AV.Object.saveAll(objectsToSave);
+            alert("UPLOAD COMPLETE");
+            closeModal('dataModal');
+            fetchNodes(); // Refresh
+        } catch(e) {
+            alert("IMPORT ERROR: " + e.message);
+            setLoading(false);
+        }
+    }
+
+    function toggleSidebar(forceClose = false) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        if (forceClose) sidebarOpen = false; else sidebarOpen = !sidebarOpen;
+        if(!sidebarOpen) {
+            sidebar.classList.add('collapsed');
+            overlay.classList.remove('active');
+        } else {
+            sidebar.classList.remove('collapsed');
+            overlay.classList.add('active');
+        }
+    }
+
+    function typeWriter(text, elementId) {
+        const el = document.getElementById(elementId);
+        if (typingInterval) clearInterval(typingInterval);
+        el.innerText = '';
+        let i = 0;
+        typingInterval = setInterval(() => {
+            el.innerText += text.charAt(i);
+            i++;
+            if (i > text.length - 1) clearInterval(typingInterval);
+        }, 30);
+    }
+    
+    // UI Helpers
+    function filterNodes(val) { renderSidebar(val); }
+    function toggleMode(mode) {
+        if (mode === 'code') {
+            uiState.code = !uiState.code;
+            document.getElementById('extCode').classList.toggle('open', uiState.code);
+            document.getElementById('btnCode').classList.toggle('active', uiState.code);
+            if(uiState.code) setTimeout(() => document.getElementById('codeInput').focus(), 100);
+        }
+        if (mode === 'list') {
+            uiState.list = !uiState.list;
+            document.getElementById('btnList').classList.toggle('active', uiState.list);
+            const ph = document.getElementById('mainInput');
+            ph.placeholder = uiState.list ? "KEY : VALUE (Multiline)" : "Type /help for commands...";
+        }
+    }
+    function autoResize(el) { el.style.height = '24px'; el.style.height = el.scrollHeight + 'px'; }
+    function triggerFile() { document.getElementById('hiddenFile').click(); }
+    function handleFileSelect(input) { if(input.files && input.files[0]) processFile(input.files[0]); }
+    function handlePaste(e) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let item of items) { if (item.kind === 'file' && item.type.includes('image')) processFile(item.getAsFile()); }
+    }
+    function processFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            uiState.img = e.target.result;
+            const preview = document.getElementById('extPreview');
+            preview.style.display = 'flex';
+            preview.innerHTML = `<div class="chip">IMG_BUFFER <span class="chip-x" onclick="clearImg()">×</span></div>`;
+            document.getElementById('btnImg').classList.add('active');
+        };
+        reader.readAsDataURL(file);
+    }
+    function clearImg() {
+        uiState.img = null;
+        document.getElementById('extPreview').style.display = 'none';
+        document.getElementById('btnImg').classList.remove('active');
+    }
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function escapeHtml(t) { if(!t)return ''; return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+    init();
+</script>
+</body>
+</html>
