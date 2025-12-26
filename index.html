@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NEURAL | TITAN OMEGA [CLOUD]</title>
-    <!-- LeanCloud SDK -->
     <script src="https://unpkg.com/leancloud-storage@4.15.2/dist/av-min.js"></script>
     
     <link rel="preconnect" href="https://gs.jurieo.com/gemini/fonts-googleapis">
@@ -424,10 +423,8 @@
 <div class="scan-overlay"></div>
 <div class="scan-beam"></div>
 
-<!-- Mobile Backdrop -->
 <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar(true)"></div>
 
-<!-- Sidebar -->
 <aside id="sidebar" class="collapsed">
     <div class="brand-block">
         <div class="app-title">
@@ -460,7 +457,6 @@
     </div>
 </aside>
 
-<!-- Main Area -->
 <main id="mainPanel">
     <header>
         <div class="head-left">
@@ -489,7 +485,6 @@
         </div>
     </div>
 
-    <!-- Console Dock -->
     <div id="console-dock">
         <div class="console-hull">
             <div class="corner-decor corner-tl"></div><div class="corner-decor corner-tr"></div>
@@ -519,7 +514,6 @@
 
 <input type="file" id="hiddenFile" accept="image/*" style="display:none" onchange="handleFileSelect(this)">
 
-<!-- Node Init Modal -->
 <div class="modal-mask" id="projectModal">
     <div class="modal-box">
         <div class="corner-decor corner-tl"></div><div class="corner-decor corner-tr"></div>
@@ -533,7 +527,6 @@
     </div>
 </div>
 
-<!-- Data IO Modal -->
 <div class="modal-mask" id="dataModal">
     <div class="modal-box" style="width: 500px;">
         <div class="corner-decor corner-tl"></div><div class="corner-decor corner-tr"></div>
@@ -917,6 +910,12 @@
         renderSidebar(document.querySelector('.search-input').value);
 
         if (window.innerWidth < 768) toggleSidebar(true);
+
+        // Auto Scroll to bottom on select
+        setTimeout(() => {
+            const s = document.getElementById('stream-wrapper');
+            s.scrollTop = s.scrollHeight;
+        }, 50);
     }
 
     function renderLogs(logs) {
@@ -928,7 +927,8 @@
             return;
         }
 
-        [...logs].reverse().forEach((log, index) => {
+        // --- CHANGE: Removed .reverse() to keep chronological order (newest at bottom) ---
+        logs.forEach((log, index) => {
             const d = new Date(log.ts);
             const timeStr = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
             const dateStr = `${d.getMonth()+1}.${d.getDate()}`;
